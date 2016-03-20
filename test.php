@@ -32,15 +32,11 @@
 		}
 
 		public function escape($s) {
-			return '\''.$this->escapeRaw($s).'\'';
+			return '\''.$this->real_escape_string($s).'\'';
 		}
 
 		public function escapeFieldName($s) {
 			return '`'.str_replace('`', '``', $s).'`';
-		}
-
-		public function escapeRaw($s) {
-			return $this->real_escape_string($s);
 		}
 
 		public function processPlaceHolders($s, $vals) {
@@ -52,11 +48,6 @@
 				switch($c) {
 					case '_':
 						$s[$i] = $this->escape($vals[$n]).substr($s[$i], 1);
-						$n++;
-						break;
-
-					case '~':
-						$s[$i] = $this->escapeRaw($vals[$n]).substr($s[$i], 1);
 						$n++;
 						break;
 
@@ -97,10 +88,6 @@
 		}
 
 		public function __toString() {
-			return $this->_buildQuery();
-		}
-
-		public function _buildQuery() {
 			$parts = $this->parts;
 			foreach($parts as &$part) {
 				$part = $part[0]."\n  ".implode("\n  ,", $part[1]);
