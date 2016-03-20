@@ -1,7 +1,7 @@
 <?php
 
 	$q = new PicoDatabaseQuery();
-	$q = $q->select('1', '2')->select('3')->from('table')->where('1', '2', '3')->where('99');
+	$q = $q->select('1', '2')->select('3')->from('table')->where('1', '2', '3')->where('99')->orderBy('1');
 
 	var_dump(trim($q));
 
@@ -10,37 +10,37 @@
 	var_dump($d->processPlaceHolders('??hello, ?_?? how ?? are you ?*??', array('/\/\1"1\'1\/\/', '222')));
 
 
-	class PicoDatabase {
-
-		public $db;
+	class PicoDatabase extends mysqli {
 
 		public function __construct($server = null, $username = null, $password = null, $database = null, $encoding = null) {
-			return $this->connect($server, $username, $password, $database, $encoding);
-		}
-
-		public function connect($server = null, $username = null, $password = null, $database = null, $encoding = null) {
-			if($this->db) {
-				$this->db->close();
-			}
 			$_server = explode(':', $server);
 			if(!isset($_server[1]) || !$_server[1] || $_server[0] == 'p') {
-				$this->db = new mysqli($server, $username, $password, $database);
+				parent::__construct($server, $username, $password, $database);
 			} else {
-				$this->db = new mysqli($_server[0], $username, $password, $database, $_server[1]);
+				parent::__construct($_server[0], $username, $password, $database, $_server[1]);
 			}
-			if($encoding)  $this->db->set_charset($encoding);
+
+			if($this->connect_error) {
+				throw new Exception('('.$this->connect_errno.') '.$this->connect_error, $this->connect_errno);
+			}
+
+			if($encoding)  $this->set_charset($encoding);
+		}
+
+		public function __destruct() {
+			$this->close();
 		}
 
 		public function escape($s) {
 			return '\''.$this->escapeRaw($s).'\'';
 		}
 
-		public function escapeRaw($s) {
-			return $this->db->real_escape_string($s);
-		}
-
 		public function escapeFieldName($s) {
 			return '`'.str_replace('`', '``', $s).'`';
+		}
+
+		public function escapeRaw($s) {
+			return $this->real_escape_string($s);
 		}
 
 		public function processPlaceHolders($s, $vals) {
@@ -81,8 +81,12 @@
 
 		public $parts = array();
 
+		private $letters_replaces_w_spaces = array('A'=>' A','B'=>' B','C'=>' C','D'=>' D','E'=>' E','F'=>' F','G'=>' G','H'=>' H','I'=>' I','J'=>' J','K'=>' K','L'=>' L','M'=>' M','N'=>' N','O'=>' O','P'=>' P','Q'=>' Q','R'=>' R','S'=>' S','T'=>' T','U'=>' U','V'=>' V','W'=>' W','X'=>' X','Y'=>' Y','Z'=>' Z');
+
 		public function __call($name, $arguments) {
-			$name = strtoupper($name);
+			$name = strtr($name, $this->letters_replaces_w_spaces);
+			$name = trim(strtoupper($name));
+
 			$parts_count = count($this->parts);
 			if( ($parts_count > 0) && ($this->parts[$parts_count - 1][0] == $name) ) {
 				$this->parts[$parts_count - 1][1] = array_merge($this->parts[$parts_count - 1][1], $arguments);
@@ -99,7 +103,7 @@
 		public function _buildQuery() {
 			$parts = $this->parts;
 			foreach($parts as &$part) {
-				$part = $part[0].' '.implode(', ', $part[1]);
+				$part = $part[0]."\n  ".implode("\n  ,", $part[1]);
 			}
 			return implode("\n", $parts);
 		}
