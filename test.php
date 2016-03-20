@@ -5,25 +5,38 @@
 
 	var_dump(trim($q));
 
-	$d = new PicoDatabase();
-	var_dump($d->processPlaceHolders('hello, ?_! how are you ?* the end', array('111', '222')));
-	var_dump($d->processPlaceHolders('??hello, ?_?? how ?? are you ?*??', array('111', '222')));
+	$d = new PicoDatabase('localhost', 'root');
+	var_dump($d->processPlaceHolders('hello, ?_! how are you ?* the end', array('/\/\1\'1"1\/\/', '222')));
+	var_dump($d->processPlaceHolders('??hello, ?_?? how ?? are you ?*??', array('/\/\1"1\'1\/\/', '222')));
 
 
 	class PicoDatabase {
 
 		public $db;
 
-		public function __construct() {
+		public function __construct($server = null, $username = null, $password = null, $database = null, $encoding = null) {
+			return $this->connect($server, $username, $password, $database, $encoding);
+		}
 
+		public function connect($server = null, $username = null, $password = null, $database = null, $encoding = null) {
+			if($this->db) {
+				$this->db->close();
+			}
+			$_server = explode(':', $server);
+			if(!isset($_server[1]) || !$_server[1] || $_server[0] == 'p') {
+				$this->db = new mysqli($server, $username, $password, $database);
+			} else {
+				$this->db = new mysqli($_server[0], $username, $password, $database, $_server[1]);
+			}
+			if($encoding)  $this->db->set_charset($encoding);
 		}
 
 		public function escape($s) {
-			return '\''.$this->escapeWOQuotes($s).'\'';
+			return '\''.$this->escapeRaw($s).'\'';
 		}
 
-		public function escapeWOQuotes($s) {
-			return $s;
+		public function escapeRaw($s) {
+			return $this->db->real_escape_string($s);
 		}
 
 		public function escapeFieldName($s) {
@@ -38,7 +51,12 @@
 				$c = substr($s[$i], 0, 1);
 				switch($c) {
 					case '_':
-						$s[$i] = $vals[$n].substr($s[$i], 1);
+						$s[$i] = $this->escape($vals[$n]).substr($s[$i], 1);
+						$n++;
+						break;
+
+					case '~':
+						$s[$i] = $this->escapeRaw($vals[$n]).substr($s[$i], 1);
 						$n++;
 						break;
 
