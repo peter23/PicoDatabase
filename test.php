@@ -1,16 +1,27 @@
 <?php
 
-	$q = new PicoDatabaseQuery();
-	$q = $q->select('1', '2')->select('3')->from('table')->where('1', '2', '3')->where('99')->orderBy('1');
-
-	var_dump(trim($q));
-
 	$d = new PicoDatabase('localhost', 'root');
+
 	var_dump($d->processPlaceHolders('hello, ?_! how are you ?* the end', array('/\/\1\'1"1\/\/', '222')));
 	var_dump($d->processPlaceHolders('??hello, ?_?? how ?? are you ?*??', array('/\/\1"1\'1\/\/', '222')));
 
+	$q = $d->select('1', '2')->select('3')->from('table')->where('1', '2', '3')->where('99')->orderBy('1');
+
+	var_dump(strval($q));
+
+
 
 	class PicoDatabase extends mysqli {
+
+		public function __call($name, $arguments) {
+			$_name = strtoupper(substr($name, 0, 6));
+			if(($_name == 'SELECT') || ($_name == 'INSERT') || ($_name == 'UPDATE') || ($_name == 'DELETE')) {
+				return new PicoDatabaseQuery($this, $name, $arguments);
+			} else {
+				throw new Exception('Call to undefined method PicoDatabase::'.$name.'()');
+			}
+		}
+
 
 		public function __construct($server = null, $username = null, $password = null, $database = null, $encoding = null) {
 			$_server = explode(':', $server);
@@ -27,17 +38,26 @@
 			if($encoding)  $this->set_charset($encoding);
 		}
 
+
 		public function __destruct() {
 			$this->close();
 		}
+
+
+		public function buildQuery() {
+			return new PicoDatabaseQuery($this);
+		}
+
 
 		public function escape($s) {
 			return '\''.$this->real_escape_string($s).'\'';
 		}
 
+
 		public function escapeFieldName($s) {
 			return '`'.str_replace('`', '``', $s).'`';
 		}
+
 
 		public function processPlaceHolders($s, $vals) {
 			$s = explode('?', $s);
@@ -68,11 +88,15 @@
 	}
 
 
+
 	class PicoDatabaseQuery {
 
 		public $parts = array();
 
+		private $db;
+
 		private $letters_replaces_w_spaces = array('A'=>' A','B'=>' B','C'=>' C','D'=>' D','E'=>' E','F'=>' F','G'=>' G','H'=>' H','I'=>' I','J'=>' J','K'=>' K','L'=>' L','M'=>' M','N'=>' N','O'=>' O','P'=>' P','Q'=>' Q','R'=>' R','S'=>' S','T'=>' T','U'=>' U','V'=>' V','W'=>' W','X'=>' X','Y'=>' Y','Z'=>' Z');
+
 
 		public function __call($name, $arguments) {
 			$name = strtr($name, $this->letters_replaces_w_spaces);
@@ -86,6 +110,15 @@
 			}
 			return $this;
 		}
+
+
+		public function __construct(&$db, $call = null, $arguments = array()) {
+			$this->db = $db;
+			if(!is_null($call)) {
+				$this->__call($call, $arguments);
+			}
+		}
+
 
 		public function __toString() {
 			$parts = $this->parts;
