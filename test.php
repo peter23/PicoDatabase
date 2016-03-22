@@ -5,7 +5,25 @@
 	var_dump($d->processPlaceHolders('hello, ?_! how are you ?* the end', array('/\/\1\'1"1\/\/', '222')));
 	var_dump($d->processPlaceHolders('??hello, ?_?? how ?? are you ?*??', array('/\/\1"1\'1\/\/', '222')));
 
-	$q = $d->select('1', '2')->select('3')->from('table')->where('1', '2', '3')->where('99')->orderBy('1');
+	$q = $d
+		->select(array('f1', 'f2'))->select('f3')
+		->from('table1')->from('table2')
+		->leftJoin('ggg')
+		->on('a = ?_', 1)
+		->where('1')
+		->where('a IN (?_)', array(1,2,3))
+		->where('x=?_', 1)
+		->where('x=?_ OR y=?* OR z=?_', 1, 2, 3)
+		->where(array('x = ?_', 'y = ?_'), 10)
+		->where(array(
+			'a = ?_' => 11,
+			'b = ?_' => 22
+		))
+		->set('?_', array('first'=>1, 'second'=>2, 'third'=>3))
+		->set('?_', array('first'=>1, 'second'=>2, 'third'=>3))
+		->orderBy('ggg')
+		->limit(array(1, 2))
+	;
 
 	var_dump(strval($q));
 
@@ -50,7 +68,28 @@
 
 
 		public function escape($s) {
-			return '\''.$this->real_escape_string($s).'\'';
+
+			if(!is_array($s)) {
+				return '\''.$this->real_escape_string($s).'\'';
+
+			} else {
+
+				$s_keys = array_keys($s);
+				if(is_int( array_shift($s_keys) )) {
+					foreach($s as &$s1) {
+						$s1 = $this->escape($s1);
+					}
+					return implode(',', $s);
+
+				} else {
+					foreach($s as $s_key=>&$s1) {
+						$s1 = $this->escapeFieldName($s_key).'='.$this->escape($s1);
+					}
+					return implode(' , ', $s);
+				}
+
+			}
+
 		}
 
 
@@ -62,8 +101,8 @@
 		public function processPlaceHolders($s, $vals) {
 			$s = explode('?', $s);
 			$n = 0;
-			$cn = count($s);
-			for($i = 1; $i < $cn; $i++) {
+			$s_count = count($s);
+			for($i = 1; $i < $s_count; $i++) {
 				$c = substr($s[$i], 0, 1);
 				switch($c) {
 					case '_':
@@ -99,15 +138,30 @@
 
 
 		public function __call($name, $arguments) {
-			$name = strtr($name, $this->letters_replaces_w_spaces);
-			$name = trim(strtoupper($name));
+			$arguments_count = count($arguments);
+			if(($arguments_count >= 1) && (is_array($arguments[0]))) {
+				$subcalls = array_shift($arguments);
+				foreach($subcalls as &$subcall) {
+					$this->__call($name, array_merge(array($subcall), $arguments));
+				}
 
-			$parts_count = count($this->parts);
-			if( ($parts_count > 0) && ($this->parts[$parts_count - 1][0] == $name) ) {
-				$this->parts[$parts_count - 1][1] = array_merge($this->parts[$parts_count - 1][1], $arguments);
 			} else {
-				$this->parts[] = array($name, $arguments);
+				$name = strtr($name, $this->letters_replaces_w_spaces);
+				$name = trim(strtoupper($name));
+
+				if($arguments_count > 1) {
+					$tmp_statement = array_shift($arguments);
+					$arguments = array($this->db->processPlaceHolders($tmp_statement, $arguments));
+				}
+
+				$parts_count = count($this->parts) - 1;
+				if( ($parts_count >= 0) && ($this->parts[$parts_count][0] == $name) ) {
+					$this->parts[$parts_count][1] = array_merge($this->parts[$parts_count][1], $arguments);
+				} else {
+					$this->parts[] = array($name, $arguments);
+				}
 			}
+
 			return $this;
 		}
 
@@ -123,9 +177,44 @@
 		public function __toString() {
 			$parts = $this->parts;
 			foreach($parts as &$part) {
-				$part = $part[0]."\n  ".implode("\n  ,", $part[1]);
+				$count_part1 = count($part[1]);
+				if($count_part1 && (($part[0] == 'WHERE') || ($part[0] == 'ON') || ($part[0] == 'HAVING'))) {
+					$part = $part[0]."\n  (".implode(")\n  AND (", $part[1]).')';
+				} else {
+					$part = $part[0].($count_part1 ? "\n  ".implode("\n  ,", $part[1]) : '');
+				}
 			}
 			return implode("\n", $parts);
+		}
+
+
+		public function execute() {
+
+		}
+
+
+		public function fetch() {
+
+		}
+
+
+		public function fetchAll() {
+
+		}
+
+
+		public function fetchCol() {
+
+		}
+
+
+		public function fetchIndexed() {
+
+		}
+
+
+		public function fetchVal() {
+
 		}
 
 	}
