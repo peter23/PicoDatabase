@@ -19,6 +19,7 @@
 			'a = ?_' => 11,
 			'b = ?_' => 22
 		))
+		->where('?@ = ?@', 'n', 'm')
 		->set('?_', array('first'=>1, 'second'=>2, 'third'=>3))
 		->set('?_', array('first'=>1, 'second'=>2, 'third'=>3))
 		->orderBy('ggg')
@@ -31,9 +32,12 @@
 
 	class PicoDatabase extends mysqli {
 
+		private $letters_replaces_w_spaces = array('A'=>' A','B'=>' B','C'=>' C','D'=>' D','E'=>' E','F'=>' F','G'=>' G','H'=>' H','I'=>' I','J'=>' J','K'=>' K','L'=>' L','M'=>' M','N'=>' N','O'=>' O','P'=>' P','Q'=>' Q','R'=>' R','S'=>' S','T'=>' T','U'=>' U','V'=>' V','W'=>' W','X'=>' X','Y'=>' Y','Z'=>' Z');
+
+
 		public function __call($name, $arguments) {
 			$_name = strtoupper(substr($name, 0, 6));
-			if(($_name == 'SELECT') || ($_name == 'INSERT') || ($_name == 'UPDATE') || ($_name == 'DELETE')) {
+			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE') {
 				return new PicoDatabaseQuery($this, $name, $arguments);
 			} else {
 				throw new Exception('Call to undefined method PicoDatabase::'.$name.'()');
@@ -43,14 +47,14 @@
 
 		public function __construct($server = null, $username = null, $password = null, $database = null, $encoding = null) {
 			$_server = explode(':', $server);
-			if(!isset($_server[1]) || !$_server[1] || $_server[0] == 'p') {
+			if(!isset($_server[1]) || !$_server[1] || $_server[0] === 'p') {
 				parent::__construct($server, $username, $password, $database);
 			} else {
 				parent::__construct($_server[0], $username, $password, $database, $_server[1]);
 			}
 
 			if($this->connect_error) {
-				throw new Exception('('.$this->connect_errno.') '.$this->connect_error, $this->connect_errno);
+				throw new Exception('PicoDatabase.__construct: ('.$this->connect_errno.') '.$this->connect_error, $this->connect_errno);
 			}
 
 			if($encoding)  $this->set_charset($encoding);
@@ -68,28 +72,19 @@
 
 
 		public function escape($s) {
-
 			if(!is_array($s)) {
 				return '\''.$this->real_escape_string($s).'\'';
 
 			} else {
-
-				$s_keys = array_keys($s);
-				if(is_int( array_shift($s_keys) )) {
-					foreach($s as &$s1) {
+				foreach($s as $s_key => &$s1) {
+					if(is_int($s_key)) {
 						$s1 = $this->escape($s1);
-					}
-					return implode(',', $s);
-
-				} else {
-					foreach($s as $s_key=>&$s1) {
+					} else {
 						$s1 = $this->escapeFieldName($s_key).'='.$this->escape($s1);
 					}
-					return implode(' , ', $s);
 				}
-
+				return implode(', ', $s);
 			}
-
 		}
 
 
@@ -98,7 +93,13 @@
 		}
 
 
+		public function sqlOpsToUpper($s) {
+			return trim(strtoupper(strtr($s, $this->letters_replaces_w_spaces)));
+		}
+
+
 		public function processPlaceHolders($s, $vals) {
+			$s0 = $s;
 			$s = explode('?', $s);
 			$n = 0;
 			$s_count = count($s);
@@ -106,11 +107,16 @@
 				$c = substr($s[$i], 0, 1);
 				switch($c) {
 					case '_':
-						$s[$i] = $this->escape($vals[$n]).substr($s[$i], 1);
-						$n++;
-						break;
-
 					case '*':
+					case '@':
+						if(!isset($vals[$n])) {
+							throw new Exception('PicoDatabase.processPlaceHolders: incorrect number of arguments ('.serialize($s0).','.serialize($vals).')');
+						}
+						if($c === '_') {
+							$vals[$n] = $this->escape($vals[$n]);
+						} elseif($c === '@') {
+							$vals[$n] = $this->escapeFieldName($vals[$n]);
+						}
 						$s[$i] = $vals[$n].substr($s[$i], 1);
 						$n++;
 						break;
@@ -118,6 +124,10 @@
 					case '':
 						$s[$i] = '?';
 						$i++;
+						break;
+
+					default:
+						throw new Exception('PicoDatabase.processPlaceHolders: incorrect placeholder ('.serialize($c).')');
 						break;
 				}
 			}
@@ -134,20 +144,23 @@
 
 		private $db;
 
-		private $letters_replaces_w_spaces = array('A'=>' A','B'=>' B','C'=>' C','D'=>' D','E'=>' E','F'=>' F','G'=>' G','H'=>' H','I'=>' I','J'=>' J','K'=>' K','L'=>' L','M'=>' M','N'=>' N','O'=>' O','P'=>' P','Q'=>' Q','R'=>' R','S'=>' S','T'=>' T','U'=>' U','V'=>' V','W'=>' W','X'=>' X','Y'=>' Y','Z'=>' Z');
-
 
 		public function __call($name, $arguments) {
 			$arguments_count = count($arguments);
-			if(($arguments_count >= 1) && (is_array($arguments[0]))) {
+
+			if(($arguments_count > 0) && (is_array($arguments[0]))) {
 				$subcalls = array_shift($arguments);
-				foreach($subcalls as &$subcall) {
-					$this->__call($name, array_merge(array($subcall), $arguments));
+				foreach($subcalls as $subcall_key => &$subcall) {
+					if(!is_array($subcall)) $subcall = array($subcall);
+					if(is_string($subcall_key)) {
+						$this->__call($name, array_merge(array($subcall_key), $subcall));
+					} else {
+						$this->__call($name, array_merge($subcall, $arguments));
+					}
 				}
 
 			} else {
-				$name = strtr($name, $this->letters_replaces_w_spaces);
-				$name = trim(strtoupper($name));
+				$name = $this->db->SqlOpsToUpper($name);
 
 				if($arguments_count > 1) {
 					$tmp_statement = array_shift($arguments);
@@ -155,7 +168,7 @@
 				}
 
 				$parts_count = count($this->parts) - 1;
-				if( ($parts_count >= 0) && ($this->parts[$parts_count][0] == $name) ) {
+				if($parts_count >= 0 && $this->parts[$parts_count][0] === $name) {
 					$this->parts[$parts_count][1] = array_merge($this->parts[$parts_count][1], $arguments);
 				} else {
 					$this->parts[] = array($name, $arguments);
@@ -178,10 +191,10 @@
 			$parts = $this->parts;
 			foreach($parts as &$part) {
 				$count_part1 = count($part[1]);
-				if($count_part1 && (($part[0] == 'WHERE') || ($part[0] == 'ON') || ($part[0] == 'HAVING'))) {
+				if($count_part1 > 0 && ($part[0] === 'WHERE' || $part[0] === 'ON' || $part[0] === 'HAVING')) {
 					$part = $part[0]."\n  (".implode(")\n  AND (", $part[1]).')';
 				} else {
-					$part = $part[0].($count_part1 ? "\n  ".implode("\n  ,", $part[1]) : '');
+					$part = $part[0].($count_part1 > 0 ? "\n  ".implode("\n  ,", $part[1]) : '');
 				}
 			}
 			return implode("\n", $parts);
