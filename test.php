@@ -2,18 +2,15 @@
 
 	$d = new PicoDatabase('localhost', 'root');
 
-	var_dump($d->processPlaceHolders('hello, ?_! how are you ?* the end', array('/\/\1\'1"1\/\/', '222')));
-	var_dump($d->processPlaceHolders('??hello, ?_?? how ?? are you ?*??', array('/\/\1"1\'1\/\/', '222')));
-
 	$q = $d
-		->select(array('f1', 'f2'))->select('f3')
+		->select('f1', 'f2')->select('f3')->select(array('f4', 'f5'))->select('?@', 'f6')->select('?@', array('f7', 'f8'))
 		->from('table1')->from('table2')
-		->leftJoin('ggg')
+		->helloWorld()
+		->leftJoin('table3')
 		->on('a = ?_', 1)
-		->where('1')
-		->where('a IN (?_)', array(1,2,3))
-		->where('x=?_', 1)
-		->where('x=?_ OR y=?* OR z=?_', 1, 2, 3)
+		->on('b = ?*', 2)
+		->where('x=?_ OR y=?* OR z LIKE \'??\' OR j LIKE ?_ OR k LIKE ?_', 1, 2, '%??%/\"/\%??%', '/\/\1\'1"1\/\/')
+		->where('a IN (?_)', array(1, 2, 3))
 		->where(array('x = ?_', 'y = ?_'), 10)
 		->where(array(
 			'a = ?_' => 11,
@@ -22,11 +19,17 @@
 		->where('?@ = ?@', 'n', 'm')
 		->set('?_', array('first'=>1, 'second'=>2, 'third'=>3))
 		->set('?_', array('first'=>1, 'second'=>2, 'third'=>3))
-		->orderBy('ggg')
-		->limit(array(1, 2))
+		->orderBy('f9')
+		->limit(1, 2)
 	;
 
 	var_dump(strval($q));
+
+
+	var_dump(strval($d->implodeSql('OR')->add('1')->add('2')));
+
+
+	var_dump(strval($d->select('* FROM blabla where bla "')));
 
 
 
@@ -37,7 +40,7 @@
 
 		public function __call($name, $arguments) {
 			$_name = strtoupper(substr($name, 0, 6));
-			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE') {
+			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || strtoupper($name) === 'IMPLODESQL') {
 				return new PicoDatabaseQuery($this, $name, $arguments);
 			} else {
 				throw new Exception('Call to undefined method PicoDatabase::'.$name.'()');
@@ -89,7 +92,15 @@
 
 
 		public function escapeFieldName($s) {
-			return '`'.str_replace('`', '``', $s).'`';
+			if(!is_array($s)) {
+				return '`'.str_replace('`', '``', $s).'`';
+
+			} else {
+				foreach($s as &$s1) {
+					$s1 = $this->escapeFieldName($s1);
+				}
+				return implode(', ', $s);
+			}
 		}
 
 
@@ -146,24 +157,42 @@
 
 
 		public function __call($name, $arguments) {
+			//if first argument is not an array and does not contain placeholders
+			if(count($arguments) > 0 && !is_array($arguments[0]) && strpos($arguments[0], '?') === false) {
+				$arguments = array($arguments);
+			}
+			return $this->__call_($name, $arguments);
+		}
+
+
+		private function __call_($name, $arguments) {
 			$arguments_count = count($arguments);
 
-			if(($arguments_count > 0) && (is_array($arguments[0]))) {
+			//if first argument is an array
+			if($arguments_count > 0 && is_array($arguments[0])) {
+				//take that array
 				$subcalls = array_shift($arguments);
+				//and process each its element
 				foreach($subcalls as $subcall_key => &$subcall) {
 					if(!is_array($subcall)) $subcall = array($subcall);
+					//if an element has string key
 					if(is_string($subcall_key)) {
-						$this->__call($name, array_merge(array($subcall_key), $subcall));
+						//use that key as string with placeholders and the element as values
+						$this->__call_($name, array_merge(array($subcall_key), $subcall));
 					} else {
-						$this->__call($name, array_merge($subcall, $arguments));
+						//use element as string with placeholders and other argumants as values
+						$this->__call_($name, array_merge($subcall, $arguments));
 					}
 				}
 
 			} else {
 				$name = $this->db->SqlOpsToUpper($name);
 
+				//if there are more than one arguments
 				if($arguments_count > 1) {
+					//use first argument as string with placeholders
 					$tmp_statement = array_shift($arguments);
+					//and other arguments as values
 					$arguments = array($this->db->processPlaceHolders($tmp_statement, $arguments));
 				}
 
@@ -211,22 +240,17 @@
 		}
 
 
-		public function fetchAll() {
+		public function fetchAll($index = null) {
 
 		}
 
 
-		public function fetchCol() {
+		public function fetchCol($col = null, $index = null) {
 
 		}
 
 
-		public function fetchIndexed() {
-
-		}
-
-
-		public function fetchVal() {
+		public function fetchVal($col = null) {
 
 		}
 
