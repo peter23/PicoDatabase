@@ -25,11 +25,13 @@
 
 	var_dump(strval($q));
 
-
 	var_dump(strval($d->implodeSql('OR')->add('1')->add('2')));
 
-
 	var_dump(strval($d->select('* FROM blabla where bla "')));
+
+	var_dump(strval($d->buildQuery()->optimizeTable('bla')));
+
+	var_dump(strval($d->rawQuery('SELECT 1')));
 
 
 
@@ -41,7 +43,7 @@
 		public function __call($name, $arguments) {
 			$_name = strtoupper(substr($name, 0, 6));
 			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || strtoupper($name) === 'IMPLODESQL') {
-				return new PicoDatabaseQuery($this, $name, $arguments);
+				return new PicoDatabaseQueryBuilder($this, $name, $arguments);
 			} else {
 				throw new Exception('Call to undefined method PicoDatabase::'.$name.'()');
 			}
@@ -70,7 +72,11 @@
 
 
 		public function buildQuery() {
-			return new PicoDatabaseQuery($this);
+			return new PicoDatabaseQueryBuilder($this);
+		}
+
+		public function rawQuery($query) {
+			return new PicoDatabaseQuery($this, $query);
 		}
 
 
@@ -151,9 +157,55 @@
 
 	class PicoDatabaseQuery {
 
-		public $parts = array();
+		protected $db;
+		public $query;
 
-		private $db;
+
+		public function __construct(&$db, $query = null) {
+			$this->db = $db;
+			$this->query = $query;
+		}
+
+
+		public function __toString() {
+			return $this->query;
+		}
+
+
+		public function execute() {
+			if(get_class($this) != 'PicoDatabaseQuery') {
+				$this->query = strval($this);
+			}
+			var_dump($this->query);
+		}
+
+
+		public function fetch() {
+
+		}
+
+
+		public function fetchAll($index = null) {
+
+		}
+
+
+		public function fetchCol($col = null, $index = null) {
+
+		}
+
+
+		public function fetchVal($col = null) {
+
+		}
+
+	}
+
+
+
+	class PicoDatabaseQueryBuilder extends PicoDatabaseQuery {
+
+		public $parts = array();
 
 
 		public function __call($name, $arguments) {
@@ -209,7 +261,7 @@
 
 
 		public function __construct(&$db, $call = null, $arguments = array()) {
-			$this->db = $db;
+			parent::__construct($db);
 			if(!is_null($call)) {
 				$this->__call($call, $arguments);
 			}
@@ -227,31 +279,6 @@
 				}
 			}
 			return implode("\n", $parts);
-		}
-
-
-		public function execute() {
-
-		}
-
-
-		public function fetch() {
-
-		}
-
-
-		public function fetchAll($index = null) {
-
-		}
-
-
-		public function fetchCol($col = null, $index = null) {
-
-		}
-
-
-		public function fetchVal($col = null) {
-
 		}
 
 	}
