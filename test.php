@@ -25,13 +25,13 @@
 
 	var_dump(strval($q));
 
-	var_dump(strval($d->implodeSql('OR')->add('1')->add('2')));
-
-	var_dump(strval($d->select('* FROM blabla where bla "')));
-
 	var_dump(strval($d->buildQuery()->optimizeTable('bla')));
 
-	var_dump(strval($d->rawQuery('SELECT 1')));
+	var_dump(strval($d->setQuery('SELECT 1')));
+
+	var_dump(strval($d->setQuery('SELECT ?*', 1)));
+
+	var_dump(strval($d->nop('1')->or('2')));
 
 
 
@@ -42,7 +42,7 @@
 
 		public function __call($name, $arguments) {
 			$_name = strtoupper(substr($name, 0, 6));
-			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || strtoupper($name) === 'IMPLODESQL') {
+			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || strtoupper($name) === 'NOP') {
 				return new PicoDatabaseQueryBuilder($this, $name, $arguments);
 			} else {
 				throw new Exception('Call to undefined method PicoDatabase::'.$name.'()');
@@ -75,8 +75,13 @@
 			return new PicoDatabaseQueryBuilder($this);
 		}
 
-		public function rawQuery($query) {
-			return new PicoDatabaseQuery($this, $query);
+		public function setQuery($strQuery) {
+			if(func_num_args() > 1) {
+				$args = func_get_args();
+				array_shift($args);
+				$strQuery = $this->processPlaceHolders($strQuery, $args);
+			}
+			return new PicoDatabaseQuery($this, $strQuery);
 		}
 
 
@@ -158,25 +163,30 @@
 	class PicoDatabaseQuery {
 
 		protected $db;
-		public $query;
+		public $strQuery;
 
 
-		public function __construct(&$db, $query = null) {
+		public function __construct(&$db, $strQuery = null) {
 			$this->db = $db;
-			$this->query = $query;
+			$this->strQuery = $strQuery;
 		}
 
 
 		public function __toString() {
-			return $this->query;
+			return $this->strQuery;
 		}
 
 
 		public function execute() {
 			if(get_class($this) != 'PicoDatabaseQuery') {
-				$this->query = strval($this);
+				$this->strQuery = strval($this);
 			}
-			var_dump($this->query);
+			$ret = $this->query($this->strQuery);
+			if($ret === false) {
+				throw new Exception('PicoDatabaseQuery.execute: ('.$this->errno.') '.$this->error, $this->errno);
+			}
+			return $ret;
+			//mysqli_result
 		}
 
 
@@ -252,6 +262,7 @@
 				if($parts_count >= 0 && $this->parts[$parts_count][0] === $name) {
 					$this->parts[$parts_count][1] = array_merge($this->parts[$parts_count][1], $arguments);
 				} else {
+					if($name == 'NOP')  $name = '';
 					$this->parts[] = array($name, $arguments);
 				}
 			}
