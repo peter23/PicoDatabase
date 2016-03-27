@@ -27,9 +27,22 @@
 
 	var_dump(strval($d->buildQuery()->optimizeTable('bla')));
 
-	var_dump(strval($d->setQuery('SELECT 1')));
-
-	var_dump(strval($d->setQuery('SELECT ?*', 1)));
+	$q = $d->query('SELECT ?* AS ?@, ?_ AS ?@  UNION  SELECT 3 AS f1, 4 AS f2  UNION  SELECT 5 AS f1, 6 AS f2', 1, 'f1', 2, 'f2');
+	//var_dump($q->fetch());
+	//var_dump($q->fetch_row());
+	//var_dump($q->fetch_assoc());
+	/*foreach($q as $q1) {
+		var_dump($q1);
+	}*/
+	//var_dump($q->fetchAll());
+	//var_dump($q->fetchAll('f1'));
+	//var_dump($q->fetchCol());
+	//var_dump($q->fetchCol('f2'));
+	//var_dump($q->fetchCol('f1', 'f2'));
+	//var_dump($q->fetchCol('', 'f2'));
+	//var_dump($q->fetchVal());
+	//var_dump($q->fetchVal('f2'));
+	//var_dump($q->fetchVal('bla'));
 
 	var_dump(strval($d->nop('1')->or('2')));
 
@@ -45,7 +58,7 @@
 			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || strtoupper($name) === 'NOP') {
 				return new PicoDatabaseQueryBuilder($this, $name, $arguments);
 			} else {
-				throw new Exception('Call to undefined method PicoDatabase::'.$name.'()');
+				throw new PicoDatabaseException('Call to undefined method PicoDatabase::'.$name.'()');
 			}
 		}
 
@@ -59,7 +72,7 @@
 			}
 
 			if($this->connect_error) {
-				throw new Exception('PicoDatabase.__construct: ('.$this->connect_errno.') '.$this->connect_error, $this->connect_errno);
+				throw new PicoDatabaseException('PicoDatabase.__construct: ('.$this->connect_errno.') '.$this->connect_error, $this->connect_errno);
 			}
 
 			if($encoding)  $this->set_charset($encoding);
@@ -73,15 +86,6 @@
 
 		public function buildQuery() {
 			return new PicoDatabaseQueryBuilder($this);
-		}
-
-		public function setQuery($strQuery) {
-			if(func_num_args() > 1) {
-				$args = func_get_args();
-				array_shift($args);
-				$strQuery = $this->processPlaceHolders($strQuery, $args);
-			}
-			return new PicoDatabaseQuery($this, $strQuery);
 		}
 
 
@@ -115,6 +119,22 @@
 		}
 
 
+		public function query($strQuery) {
+			if(func_num_args() > 1) {
+				$args = func_get_args();
+				array_shift($args);
+				$strQuery = $this->processPlaceHolders($strQuery, $args);
+			}
+			if($this->real_query($strQuery)) {
+				if($this->field_count > 0) {
+					return new PicoDatabaseQueryResult($this);
+				}
+				return true;
+			}
+			throw new PicoDatabaseException('PicoDatabase.query: ('.$this->errno.') '.$this->error, $this->errno);
+		}
+
+
 		public function sqlOpsToUpper($s) {
 			return trim(strtoupper(strtr($s, $this->letters_replaces_w_spaces)));
 		}
@@ -132,7 +152,7 @@
 					case '*':
 					case '@':
 						if(!isset($vals[$n])) {
-							throw new Exception('PicoDatabase.processPlaceHolders: incorrect number of arguments ('.serialize($s0).','.serialize($vals).')');
+							throw new PicoDatabaseException('PicoDatabase.processPlaceHolders: incorrect number of arguments ('.serialize($s0).','.serialize($vals).')');
 						}
 						if($c === '_') {
 							$vals[$n] = $this->escape($vals[$n]);
@@ -149,7 +169,7 @@
 						break;
 
 					default:
-						throw new Exception('PicoDatabase.processPlaceHolders: incorrect placeholder ('.serialize($c).')');
+						throw new PicoDatabaseException('PicoDatabase.processPlaceHolders: incorrect placeholder ('.serialize($c).')');
 						break;
 				}
 			}
@@ -160,61 +180,78 @@
 
 
 
-	class PicoDatabaseQuery {
-
-		protected $db;
-		public $strQuery;
-
-
-		public function __construct(&$db, $strQuery = null) {
-			$this->db = $db;
-			$this->strQuery = $strQuery;
-		}
-
-
-		public function __toString() {
-			return $this->strQuery;
-		}
-
-
-		public function execute() {
-			if(get_class($this) != 'PicoDatabaseQuery') {
-				$this->strQuery = strval($this);
-			}
-			$ret = $this->query($this->strQuery);
-			if($ret === false) {
-				throw new Exception('PicoDatabaseQuery.execute: ('.$this->errno.') '.$this->error, $this->errno);
-			}
-			return $ret;
-			//mysqli_result
-		}
-
+	class PicoDatabaseQueryResult extends mysqli_result {
 
 		public function fetch() {
-
+			return $this->fetch_assoc();
 		}
 
 
-		public function fetchAll($index = null) {
-
+		public function fetchAll($indexCol = null) {
+			if($indexCol) {
+				$ret = array();
+				foreach($this as $row) {
+					if(!isset($row[$indexCol])) {
+						throw new PicoDatabaseException('PicoDatabaseQueryResult.fetchAll: nonexistent indexCol ('.serialize($indexCol).')');
+					}
+					$ret[$row[$indexCol]] = $row;
+				}
+				return $ret;
+			} else {
+				return $this->fetch_all(MYSQLI_ASSOC);
+			}
 		}
 
 
-		public function fetchCol($col = null, $index = null) {
-
+		public function fetchCol($col = null, $indexCol = null) {
+			$ret = array();
+			if($col || $indexCol) {
+				foreach($this as $row) {
+					if(!$col) {
+						$col = array_keys($row);
+						$col = $col[0];
+					}
+					if(!isset($row[$col])) {
+						throw new PicoDatabaseException('PicoDatabaseQueryResult.fetchCol: nonexistent col ('.serialize($col).')');
+					}
+					if($indexCol) {
+						if(!isset($row[$indexCol])) {
+							throw new PicoDatabaseException('PicoDatabaseQueryResult.fetchCol: nonexistent indexCol ('.serialize($indexCol).')');
+						}
+						$ret[$row[$indexCol]] = $row[$col];
+					} else {
+						$ret[] = $row[$col];
+					}
+				}
+			} else {
+				while($row = $this->fetch_row()) {
+					$ret[] = $row[0];
+				}
+			}
+			return $ret;
 		}
 
 
 		public function fetchVal($col = null) {
-
+			if($col) {
+				$row = $this->fetch_assoc();
+				if(!isset($row[$col])) {
+					throw new PicoDatabaseException('PicoDatabaseQueryResult.fetchVal: nonexistent col ('.serialize($col).')');
+				}
+				return $row[$col];
+			} else {
+				$row = $this->fetch_row();
+				return $row[0];
+			}
 		}
 
 	}
 
 
 
-	class PicoDatabaseQueryBuilder extends PicoDatabaseQuery {
+	class PicoDatabaseQueryBuilder {
 
+		private $db;
 		public $parts = array();
 
 
@@ -272,7 +309,7 @@
 
 
 		public function __construct(&$db, $call = null, $arguments = array()) {
-			parent::__construct($db);
+			$this->db = $db;
 			if(!is_null($call)) {
 				$this->__call($call, $arguments);
 			}
@@ -293,3 +330,7 @@
 		}
 
 	}
+
+
+
+	class PicoDatabaseException {}
