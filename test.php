@@ -14,7 +14,15 @@
 		->where(array('x = ?_', 'y = ?_'), 10)
 		->where(array(
 			'a = ?_' => 11,
-			'b = ?_' => 22
+			'b = ?_' => 22,
+			'c = ?_ OR c = ?_ OR c = ?_' => array(33, 44 ,55),
+			'c IN (?_)' => array(array(33, 44 ,55)),
+		))
+		->where(array(
+			'a' => 11,
+			'b >=' => 22,
+			'c' => array(33, 44 ,55),
+			'c IN' => array(33, 44 ,55),
 		))
 		->where('?@ = ?@', 'n', 'm')
 		->set('?_', array('first'=>1, 'second'=>2, 'third'=>3))
@@ -27,7 +35,9 @@
 
 	var_dump(strval($d->buildQuery()->optimizeTable('bla')));
 
-	$q = $d->query('SELECT ?* AS ?@, ?_ AS ?@  UNION  SELECT 3 AS f1, 4 AS f2  UNION  SELECT 5 AS f1, 6 AS f2', 1, 'f1', 2, 'f2');
+	$q = $d->select('?* AS ?@', 1, 'f1')->select('?_ AS ?@', 2, 'f2')->unionSelect('3 AS f1', '4 AS f2')->nop()->unionSelect('5 AS f1', '6 AS f2');
+	var_dump(strval($q));
+	//$q = $d->query('SELECT ?* AS ?@, ?_ AS ?@  UNION  SELECT 3 AS f1, 4 AS f2  UNION  SELECT 5 AS f1, 6 AS f2', 1, 'f1', 2, 'f2');
 	//var_dump($q->fetch());
 	//var_dump($q->fetch_row());
 	//var_dump($q->fetch_assoc());
@@ -119,22 +129,6 @@
 		}
 
 
-		public function query($strQuery) {
-			if(func_num_args() > 1) {
-				$args = func_get_args();
-				array_shift($args);
-				$strQuery = $this->processPlaceHolders($strQuery, $args);
-			}
-			if($this->real_query($strQuery)) {
-				if($this->field_count > 0) {
-					return new PicoDatabaseQueryResult($this);
-				}
-				return true;
-			}
-			throw new PicoDatabaseException('PicoDatabase.query: ('.$this->errno.') '.$this->error, $this->errno);
-		}
-
-
 		public function sqlOpsToUpper($s) {
 			return trim(strtoupper(strtr($s, $this->letters_replaces_w_spaces)));
 		}
@@ -176,11 +170,32 @@
 			return implode('', $s);
 		}
 
+
+		public function query($strQuery) {
+			if(func_num_args() > 1) {
+				$args = func_get_args();
+				array_shift($args);
+				$strQuery = $this->processPlaceHolders($strQuery, $args);
+			}
+			if($this->real_query($strQuery)) {
+				if($this->field_count > 0) {
+					return new PicoDatabaseQueryResult($this);
+				}
+				return true;
+			}
+			throw new PicoDatabaseException('PicoDatabase.query: ('.$this->errno.') '.$this->error, $this->errno);
+		}
+
 	}
 
 
 
 	class PicoDatabaseQueryResult extends mysqli_result {
+
+		public function __destruct() {
+			$this->free();
+		}
+
 
 		public function fetch() {
 			return $this->fetch_assoc();
@@ -273,12 +288,35 @@
 				$subcalls = array_shift($arguments);
 				//and process each its element
 				foreach($subcalls as $subcall_key => &$subcall) {
-					if(!is_array($subcall)) $subcall = array($subcall);
 					//if an element has string key
 					if(is_string($subcall_key)) {
+						//if key does not contain placeholders
+						if(strpos($subcall_key, '?') === false) {
+							//if the element is an array
+							if(is_array($subcall)) {
+								//add IN ?
+								if(strtoupper(substr(rtrim($subcall_key), -2)) !== 'IN') {
+									$subcall_key .= ' IN';
+								}
+								$subcall_key .= ' (?_)';
+							//if the element is not an array
+							} else {
+								//add = ?
+								if(substr(rtrim($subcall_key), -1) !== '=') {
+									$subcall_key .= ' =';
+								}
+								$subcall_key .= ' ?_';
+							}
+							$subcall = array($subcall);
+						//if key contains placeholders
+						} else {
+							if(!is_array($subcall)) $subcall = array($subcall);
+						}
 						//use that key as string with placeholders and the element as values
 						$this->__call_($name, array_merge(array($subcall_key), $subcall));
+					//if an element has non-string key, than we just do not think about key
 					} else {
+						if(!is_array($subcall)) $subcall = array($subcall);
 						//use element as string with placeholders and other argumants as values
 						$this->__call_($name, array_merge($subcall, $arguments));
 					}
@@ -327,6 +365,31 @@
 				}
 			}
 			return implode("\n", $parts);
+		}
+
+
+		public function execute() {
+
+		}
+
+
+		public function fetch() {
+
+		}
+
+
+		public function fetchAll($indexCol = null) {
+
+		}
+
+
+		public function fetchCol($col = null, $indexCol = null) {
+
+		}
+
+
+		public function fetchVal($col = null) {
+
 		}
 
 	}
