@@ -37,6 +37,7 @@
 
 	$q = $d->select('?* AS ?@', 1, 'f1')->select('?_ AS ?@', 2, 'f2')->unionSelect('3 AS f1', '4 AS f2')->nop()->unionSelect('5 AS f1', '6 AS f2');
 	var_dump(strval($q));
+	var_dump($q->fetchAll());
 	//$q = $d->query('SELECT ?* AS ?@, ?_ AS ?@  UNION  SELECT 3 AS f1, 4 AS f2  UNION  SELECT 5 AS f1, 6 AS f2', 1, 'f1', 2, 'f2');
 	//var_dump($q->fetch());
 	//var_dump($q->fetch_row());
@@ -56,6 +57,15 @@
 
 	var_dump(strval($d->nop('1')->or('2')));
 
+
+
+/**
+ * PicoDatabase is simple SQL query builder
+ *
+ * @link https://github.com/peter23/PicoDatabase
+ * @author i@peter23.com
+ * @license http://www.gnu.org/licenses/gpl-3.0.html GNU General Public License, version 3
+ */
 
 
 	class PicoDatabase extends mysqli {
@@ -180,10 +190,12 @@
 			if($this->real_query($strQuery)) {
 				if($this->field_count > 0) {
 					return new PicoDatabaseQueryResult($this);
+				} else {
+					return true;
 				}
-				return true;
+			} else {
+				throw new PicoDatabaseException('PicoDatabase.query: ('.$this->errno.') '.$this->error, $this->errno);
 			}
-			throw new PicoDatabaseException('PicoDatabase.query: ('.$this->errno.') '.$this->error, $this->errno);
 		}
 
 	}
@@ -271,11 +283,25 @@
 
 
 		public function __call($name, $arguments) {
-			//if first argument is not an array and does not contain placeholders
-			if(count($arguments) > 0 && !is_array($arguments[0]) && strpos($arguments[0], '?') === false) {
-				$arguments = array($arguments);
+			if(substr($name, 0, 5) === 'fetch') {
+				$ret = $this->execute();
+				if(is_bool($ret)) {
+					return $ret;
+				} else {
+					//much faster than call_user_func_array
+					return $ret->$name(
+						isset($arguments[0]) ? $arguments[0] : null,
+						isset($arguments[1]) ? $arguments[1] : null,
+						isset($arguments[2]) ? $arguments[2] : null
+					);
+				}
+			} else {
+				//if first argument is not an array and does not contain placeholders
+				if(count($arguments) > 0 && !is_array($arguments[0]) && strpos($arguments[0], '?') === false) {
+					$arguments = array($arguments);
+				}
+				return $this->__call_($name, $arguments);
 			}
-			return $this->__call_($name, $arguments);
 		}
 
 
@@ -322,6 +348,7 @@
 					}
 				}
 
+			//if first argument is not an array
 			} else {
 				$name = $this->db->SqlOpsToUpper($name);
 
@@ -334,6 +361,7 @@
 				}
 
 				$parts_count = count($this->parts) - 1;
+				//if previous part has the same name
 				if($parts_count >= 0 && $this->parts[$parts_count][0] === $name) {
 					$this->parts[$parts_count][1] = array_merge($this->parts[$parts_count][1], $arguments);
 				} else {
@@ -369,27 +397,7 @@
 
 
 		public function execute() {
-
-		}
-
-
-		public function fetch() {
-
-		}
-
-
-		public function fetchAll($indexCol = null) {
-
-		}
-
-
-		public function fetchCol($col = null, $indexCol = null) {
-
-		}
-
-
-		public function fetchVal($col = null) {
-
+			return $this->db->query(strval($this));
 		}
 
 	}
