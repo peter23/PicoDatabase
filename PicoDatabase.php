@@ -16,7 +16,7 @@
 
 		public function __call($name, $arguments) {
 			$_name = strtoupper(substr($name, 0, 6));
-			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || $_name === 'REPLACE' || strtoupper($name) === 'NOP') {
+			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || $_name === 'REPLACE' || $_name === 'NOP') {
 				return new PicoDatabaseQueryBuilder($this, $name, $arguments);
 			} else {
 				throw new PicoDatabaseException('Call to undefined method PicoDatabase::'.$name.'()');
@@ -81,7 +81,7 @@
 
 
 		public function sqlOpsToUpper($s) {
-			return trim(strtoupper(strtr($s, $this->letters_replaces_w_spaces)));
+			return ltrim(strtoupper(strtr($s, $this->letters_replaces_w_spaces)));
 		}
 
 
