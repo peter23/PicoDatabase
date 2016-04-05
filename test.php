@@ -11,6 +11,7 @@
 		->leftJoin('table3')
 		->on('a = ?_', 1)
 		->on('b = ?*', 2)
+		->where('x', 'y')
 		->where('x=?_ OR y=?* OR z LIKE \'??\' OR j LIKE ?_ OR k LIKE ?_ OR a IN (?_)', 1, 2, '%??%/\"/\%??%', '/\/\1\'1"1\/\/', array(1, 2, 3))
 		->where('?@ = ?@', 'n', 'm')
 		->where(array('x = ?_', 'y = ?_'), 10)

@@ -240,21 +240,25 @@
 				if(isset($arguments[0])) {
 					//if first argument is not an array and does not contain placeholders
 					if(!is_array($arguments[0]) && strpos($arguments[0], '?') === false) {
-						//if there is second argument and it is an array
-						//and operation is INSERT/UPDATE/REPLACE
-						if(
-							isset($arguments[1]) && is_array($arguments[1])
-							&& ($_name = strtoupper(substr($name, 0, 6)))
-							&& ($_name == 'INSERT' || $_name == 'UPDATE' || $_name == 'REPLACE')
-						) {
-							//use first argument as table name and following arguments as SET arrays
-							$table_name = array_shift($arguments);
-							$this->__call_($name, array($table_name));
-							foreach($arguments as $argument) {
-								$this->__call_('set', array('?_', $argument));
+						//if there is second argument
+						if(isset($arguments[1])) {
+							$_name = strtoupper(substr($name, 0, 6));
+							//if it is an array and operation is INSERT/UPDATE/REPLACE
+							if(is_array($arguments[1]) && ($_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'REPLACE')) {
+								//use first argument as table name and following arguments as SET arrays
+								$table_name = array_shift($arguments);
+								$this->__call_($name, array($table_name));
+								foreach($arguments as $argument) {
+									$this->__call_('set', array('?_', $argument));
+								}
+								return $this;
+							//if there is conditional operation
+							} elseif($_name === 'WHERE' || $_name === 'ON' || $_name === 'HAVING') {
+								//use first argument as key and second as value
+								$arguments = array($arguments[0] => $arguments[1]);
 							}
-							return $this;
 						}
+						//process all arguments as an array
 						$arguments = array($arguments);
 					}
 
@@ -321,7 +325,7 @@
 			if($parts_count >= 0 && $this->parts[$parts_count][0] === $name) {
 				$this->parts[$parts_count][1] = array_merge($this->parts[$parts_count][1], $arguments);
 			} else {
-				if($name == 'NOP')  $name = '';
+				if($name === 'NOP')  $name = '';
 				$this->parts[] = array($name, $arguments);
 			}
 
