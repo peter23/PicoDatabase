@@ -363,4 +363,4 @@
 
 
 
-	class PicoDatabaseException {}
+	class PicoDatabaseException extends Exception { }
