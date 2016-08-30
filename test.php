@@ -30,6 +30,7 @@
 		->set(array('dt = ?*' => 'NOW()'))
 		->orderBy('f9')
 		->limit(1, 2)
+		->onDuplicateKeyUpdate(array('qqq'=>'1','www'=>'2'))
 	;
 
 	var_dump(strval($q));

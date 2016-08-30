@@ -16,7 +16,7 @@
 
 		public function __call($name, $arguments) {
 			$_name = strtoupper(substr($name, 0, 6));
-			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || $_name === 'REPLACE' || $_name === 'NOP') {
+			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || $_name === 'REPLAC' || $_name === 'NOP') {
 				return new PicoDatabaseQueryBuilder($this, $name, $arguments);
 			} else {
 				throw new PicoDatabaseException('Call to undefined method PicoDatabase::'.$name.'()');
@@ -244,7 +244,7 @@
 						if(isset($arguments[1])) {
 							$_name = strtoupper(substr($name, 0, 6));
 							//if it is an array and operation is INSERT/UPDATE/REPLACE
-							if(is_array($arguments[1]) && ($_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'REPLACE')) {
+							if(is_array($arguments[1]) && ($_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'REPLAC')) {
 								//use first argument as table name and following arguments as SET arrays
 								$table_name = array_shift($arguments);
 								$this->__call_($name, array($table_name));
