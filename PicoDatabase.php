@@ -96,7 +96,7 @@
 					case '_':
 					case '*':
 					case '@':
-						if(!isset($vals[$n])) {
+						if(!array_key_exists($n, $vals)) {
 							throw new PicoDatabaseException('PicoDatabase.processPlaceHolders: incorrect number of arguments ('.serialize($s0).','.serialize($vals).')');
 						}
 						if($c === '_') {
