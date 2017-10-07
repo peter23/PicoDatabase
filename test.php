@@ -27,7 +27,7 @@
 		->set('?_', array('first'=>1, 'second'=>2, 'third'=>3))
 		->set('?_', array('first'=>1, 'second'=>2, 'third'=>3))
 		->set(array('first'=>1, 'second'=>2, 'third'=>3))
-		->set(array('dt = ?*' => 'NOW()'))
+		->set('dt = ?*', 'NOW()')
 		->orderBy('f9')
 		->limit(1, 2)
 		->onDuplicateKeyUpdate(array('qqq'=>'1','www'=>'2'))

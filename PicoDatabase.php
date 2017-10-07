@@ -253,8 +253,8 @@
 									$this->__call_('set', array('?_', $argument));
 								}
 								return $this;
-							//if there is conditional operation
-							} elseif($_name === 'WHERE' || $_name === 'ON' || $_name === 'HAVING') {
+							//if there is conditional or set operation
+							} elseif($_name === 'WHERE' || $_name === 'SET' || $_name === 'ON' || $_name === 'HAVING') {
 								//use first argument as key and second as value
 								$arguments = array($arguments[0] => $arguments[1]);
 							}
@@ -283,7 +283,8 @@
 									//if the element is not an array
 									} else {
 										//add = ?
-										if(substr(rtrim($subcall_key), -1) !== '=') {
+										$subcall_key_last_char = substr(rtrim($subcall_key), -1);
+										if(($subcall_key_last_char !== '=') && ($subcall_key_last_char !== '<') && ($subcall_key_last_char !== '>')) {
 											$subcall_key .= ' =';
 										}
 										$subcall_key .= ' ?_';
