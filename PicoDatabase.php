@@ -6,6 +6,7 @@
  * @link https://github.com/peter23/PicoDatabase
  * @author i@peter23.com
  * @license http://www.gnu.org/licenses/gpl-3.0.html GNU General Public License, version 3
+ * @require PHP >= 5.4, mysqlnd
  */
 
 
@@ -108,7 +109,7 @@
 						$n++;
 						break;
 
-					case '':
+					case '': //?? = ?
 						$s[$i] = '?';
 						$i++;
 						break;
