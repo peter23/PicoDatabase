@@ -12,9 +12,6 @@
 
 	class PicoDatabase extends mysqli {
 
-		private $letters_replaces_w_spaces = array('A'=>' A','B'=>' B','C'=>' C','D'=>' D','E'=>' E','F'=>' F','G'=>' G','H'=>' H','I'=>' I','J'=>' J','K'=>' K','L'=>' L','M'=>' M','N'=>' N','O'=>' O','P'=>' P','Q'=>' Q','R'=>' R','S'=>' S','T'=>' T','U'=>' U','V'=>' V','W'=>' W','X'=>' X','Y'=>' Y','Z'=>' Z');
-
-
 		public function __call($name, $arguments) {
 			$_name = strtoupper(substr($name, 0, 6));
 			if($_name === 'SELECT' || $_name === 'INSERT' || $_name === 'UPDATE' || $_name === 'DELETE' || $_name === 'REPLAC' || $_name === 'NOP') {
@@ -78,11 +75,6 @@
 				}
 				return implode(', ', $s);
 			}
-		}
-
-
-		public function sqlOpsToUpper($s) {
-			return ltrim(strtoupper(strtr($s, $this->letters_replaces_w_spaces)));
 		}
 
 
@@ -312,7 +304,7 @@
 
 
 		private function __call_($name, $arguments) {
-			$name = $this->db->SqlOpsToUpper($name);
+			$name = ltrim(strtoupper(strtr($name, array('A'=>' A','B'=>' B','C'=>' C','D'=>' D','E'=>' E','F'=>' F','G'=>' G','H'=>' H','I'=>' I','J'=>' J','K'=>' K','L'=>' L','M'=>' M','N'=>' N','O'=>' O','P'=>' P','Q'=>' Q','R'=>' R','S'=>' S','T'=>' T','U'=>' U','V'=>' V','W'=>' W','X'=>' X','Y'=>' Y','Z'=>' Z'))));
 
 			//if there are more than one arguments
 			if(count($arguments) > 1) {
