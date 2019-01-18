@@ -37,7 +37,7 @@ SQL builder.
 - all elements from an array (of any type - associative or not) which is used as placeholder parameter will be processed as specified in the placeholder and added to the query separated by comma: `select('?@', array('field1', 'field2'))` = ``` SELECT `field1`, `field2` ```
 
 - associative arrays are processed by keys:
-  - if key does not contain placeholders then it will generate `(<key> = '<escaped value>)'` (`=` will not be added if key contains `=`, `>` or `<`)
+  - if key does not contain placeholders then it will generate `(<key> = '<escaped value>)'` (`=` will not be added if key ends with `=`, `>` or `<`)
   - if value is an array then `IN` will be used instead of `=`, all elements will be escaped and added to the query separated by comma and in brackets
   - if key contains placeholders ("?" symbol, except "??") then values (they should be in array, non-array value will be used as array with one element) will be used as parameters for placeholders: 
   - one array can have different types of keys

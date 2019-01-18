@@ -86,10 +86,15 @@
 
 	echo '==========', "\n";
 
-	var_dump(strval(  $d->where('x LIKE ?_ OR y = ?* OR ?_', '%1/2\3\'?_??%', 'NO\'W()', array('z' => '9', 'zz' => 0))  ));
+	var_dump(strval(  $d->where(array(
+		'x' => 1,
+		'y >' => 2,
+		'z' => array(1, 2, 3),
+		'x IN (?_) OR y IN (?_)' => array(array(1,2,3), array(4,5,6)),
+	))  ));
 
 	echo '==========', "\n";
 
-	var_dump(strval(  $d->where(array('x IN (?_) OR y IN (?_)' => array(array(1,2,3), array(4,5,6))))  ));
+	var_dump(strval(  $d->where('x LIKE ?_ OR y = ?* OR ?_', '%1/2\3\'?_??%', 'NO\'W()', array('z' => '9', 'zz' => 0))  ));
 
 	echo '==========', "\n";
