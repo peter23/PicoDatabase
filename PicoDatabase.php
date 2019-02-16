@@ -261,9 +261,9 @@
 
 		public function __call($name, $arguments) {
 			if(substr($name, 0, 5) === 'fetch') {
-				$this->doQuery($name, $arguments);
+				return $this->doQuery($name, $arguments);
 			}
-			
+
 			else {
 				$name = ltrim(strtoupper(strtr($name, array('A'=>' A','B'=>' B','C'=>' C','D'=>' D','E'=>' E','F'=>' F','G'=>' G','H'=>' H','I'=>' I','J'=>' J','K'=>' K','L'=>' L','M'=>' M','N'=>' N','O'=>' O','P'=>' P','Q'=>' Q','R'=>' R','S'=>' S','T'=>' T','U'=>' U','V'=>' V','W'=>' W','X'=>' X','Y'=>' Y','Z'=>' Z'))));
 				//if we have arguments
